@@ -1,5 +1,62 @@
-asgiref==3.8.1
-Django==5.2
-djangorestframework==3.16.0
-python-decouple==3.8
-sqlparse==0.5.3
+
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment
+.env
+*.env
+.env.*
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Django
+*.log
+db.sqlite3
+media/
+staticfiles/
+local_settings.py
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Pytest
+.pytest_cache/
+.cache/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# VSCode
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+
+# JetBrains IDEs
+.idea/
+
+# Other
+*.sqlite3
+*.pot
+*.pyc
+
+# Node (if using frontend within project)
+node_modules/

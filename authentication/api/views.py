@@ -1,42 +1,35 @@
 from authentication.api.serializers import LoginSerializer, RegisterSerializer, UserSerializer
-from rest_framework.views import APIView
+from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from rest_framework import status, permissions
-from django.contrib.auth import authenticate, login, logout
+from knox.models import AuthToken
+from knox.views import LoginView as KnoxLoginView
+from django.contrib.auth import authenticate
+from rest_framework.views import APIView
 
 
-class RegisterView(APIView):
+class RegisterView(generics.GenericAPIView):
+    serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            return Response(
-                {
-                    "success": True,
-                    "message": "User registered successfully",
-                    "data": UserSerializer(user).data
-                },
-                status=status.HTTP_201_CREATED
-            )
-        errors = serializer.errors
-        if "email" in errors:
-            message = "Registration failed: Email already exists"
-        elif "password" in errors:
-            message = "Registration failed: Passwords do not match"
-        elif "username" in errors:
-            message = "Registration failed: Username already exists"
-        else:
-            message = "Registration failed due to invalid data"
-        return Response(
-            {
-                "success": False,
-                "message": message,
-                "errors": errors
-            },
-            status=status.HTTP_400_BAD_REQUEST
-        )
+            token = AuthToken.objects.create(user)[1]
+            return Response({
+                "success": True,
+                "message": "User registered successfully",
+                "data": {
+                    "user": UserSerializer(user).data,
+                    "token": token
+                }
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "success": False,
+            "message": "Registration failed",
+            "errors": serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -50,12 +43,14 @@ class LoginView(APIView):
                 password=serializer.validated_data['password']
             )
             if user:
-                login(request, user)
+                # Generate Knox token only if authentication succeeds
+                token = AuthToken.objects.create(user)[1]
                 return Response(
                     {
                         "success": True,
                         "message": "Login successful",
-                        "data": UserSerializer(user).data
+                        "user": UserSerializer(user).data,
+                        "token": token
                     },
                     status=status.HTTP_200_OK
                 )
@@ -76,49 +71,26 @@ class LoginView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+
+
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        try:
-            logout(request)
-            return Response(
-                {
-                    "success": True,
-                    "message": "Successfully logged out",
-                    "data": {}
-                },
-                status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Logout failed",
-                    "errors": {"non_field_errors": [str(e)]}
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        request._auth.delete()
+        return Response({
+            "success": True,
+            "message": "Successfully logged out"
+        }, status=status.HTTP_200_OK)
+
+
 class ProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        try:
-            serializer = UserSerializer(request.user)
-            response_data = {
-                "success": True,
-                "message": "Profile retrieved successfully"
-            }
-            # Only include data if serializer.data is non-empty
-            if serializer.data:
-                response_data["data"] = serializer.data
-            return Response(response_data, status=status.HTTP_200_OK)
-        except Exception as e:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Failed to retrieve profile",
-                    "errors": {"non_field_errors": [str(e)]}
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer = UserSerializer(request.user)
+        return Response({
+            "success": True,
+            "message": "Profile retrieved successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
