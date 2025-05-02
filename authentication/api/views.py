@@ -51,20 +51,74 @@ class LoginView(APIView):
             )
             if user:
                 login(request, user)
-                return Response(UserSerializer(user).data, status=status.HTTP_200_OK)
-            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Login successful",
+                        "data": UserSerializer(user).data
+                    },
+                    status=status.HTTP_200_OK
+                )
+            return Response(
+                {
+                    "success": False,
+                    "message": "Invalid username or password",
+                    "errors": {"non_field_errors": ["Invalid credentials"]}
+                },
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        return Response(
+            {
+                "success": False,
+                "message": "Login failed due to invalid data",
+                "errors": serializer.errors
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        logout(request)
-        return Response({"message": "Successfully logged out"}, status=status.HTTP_200_OK)
-
+        try:
+            logout(request)
+            return Response(
+                {
+                    "success": True,
+                    "message": "Successfully logged out",
+                    "data": {}
+                },
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Logout failed",
+                    "errors": {"non_field_errors": [str(e)]}
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 class ProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        try:
+            serializer = UserSerializer(request.user)
+            response_data = {
+                "success": True,
+                "message": "Profile retrieved successfully"
+            }
+            # Only include data if serializer.data is non-empty
+            if serializer.data:
+                response_data["data"] = serializer.data
+            return Response(response_data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to retrieve profile",
+                    "errors": {"non_field_errors": [str(e)]}
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
