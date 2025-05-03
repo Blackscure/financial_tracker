@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from django_filters.rest_framework import DjangoFilterBackend
+from utils.paginator import CustomPaginator
 from .serializers import CategorySerializer, TransactionSerializer
 from django.db.models import Sum
 
@@ -10,39 +11,45 @@ class CategoryListCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        categories = Category.objects.filter(user=request.user)
-        serializer = CategorySerializer(categories, many=True)
-        count = categories.count()
+            categories = Category.objects.filter(user=request.user)
+            paginator = CustomPaginator()
+            paginated_categories = paginator.paginate_queryset(categories, request)
 
-        if count == 0:
-            return Response({
-                "success": True,
-                "message": "No data",
-                "count": count,
-                "data": []
-            })
+            if not paginated_categories:
+                return Response({
+                    "success": True,
+                    "message": "No data",
+                    "count": 0,
+                    "data": []
+                })
 
-        return Response({
-            "success": True,
-            "message": "Categories retrieved successfully",
-            "count": count,
-            "data": serializer.data
-        })
+            serializer = CategorySerializer(paginated_categories, many=True)
+            return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
-        serializer = CategorySerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
+            name = request.data.get('name')
+
+            if Category.objects.filter(name=name).exists():
+                return Response({
+                    "success": False,
+                    "message": "Category with this name already exists.",
+                    "errors": {"name": ["This category already exists."]}
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = CategorySerializer(data=request.data, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "success": True,
+                    "message": "Category created successfully",
+                    "data": serializer.data
+                }, status=status.HTTP_201_CREATED)
+
             return Response({
-                "success": True,
-                "message": "Category created successfully",
-                "data": serializer.data
-            }, status=status.HTTP_201_CREATED)
-        return Response({
-            "success": False,
-            "message": "Failed to create category",
-            "errors": serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
+                "success": False,
+                "message": "Failed to create category",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class CategoryDetailView(APIView):
@@ -65,11 +72,31 @@ class CategoryDetailView(APIView):
         category = self.get_object(pk, request.user)
         if not category:
             return Response({"success": False, "message": "Category not found"}, status=404)
+
+        # Check for existing category with the same name but a different ID
+        new_name = request.data.get('name')
+        if new_name and Category.objects.filter(name=new_name).exclude(id=category.id).exists():
+            return Response({
+                "success": False,
+                "message": "Category with this name already exists.",
+                "errors": {"name": ["This category name already exists."]}
+            }, status=400)
+
         serializer = CategorySerializer(category, data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response({"success": True, "message": "Category updated", "data": serializer.data})
-        return Response({"success": False, "message": "Failed to update", "errors": serializer.errors}, status=400)
+            return Response({
+                "success": True,
+                "message": "Category updated",
+                "data": serializer.data
+            })
+
+        return Response({
+            "success": False,
+            "message": "Failed to update",
+            "errors": serializer.errors
+        }, status=400)
+
 
     def delete(self, request, pk):
         category = self.get_object(pk, request.user)
