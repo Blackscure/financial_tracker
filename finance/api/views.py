@@ -19,9 +19,9 @@ class CategoryListCreateView(APIView):
         })
 
     def post(self, request):
-        serializer = CategorySerializer(data=request.data)
+        serializer = CategorySerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(user=request.user)
+            serializer.save()
             return Response({
                 "success": True,
                 "message": "Category created successfully",
@@ -32,6 +32,7 @@ class CategoryListCreateView(APIView):
             "message": "Failed to create category",
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
+
 
 class CategoryDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
