@@ -129,9 +129,21 @@ class TransactionListCreateView(APIView):
         })
 
     def post(self, request):
-        serializer = TransactionSerializer(data=request.data)
+        # Check if similar transaction already exists
+        if Transaction.objects.filter(
+            user=request.user,
+            amount=request.data.get('amount'),
+            description=request.data.get('description'),
+            date=request.data.get('date')
+        ).exists():
+            return Response({
+                "success": False,
+                "message": "Transaction already exists with the same details"
+            }, status=400)
+
+        serializer = TransactionSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(user=request.user)
+            serializer.save()
             return Response({
                 "success": True,
                 "message": "Transaction created successfully",
@@ -142,6 +154,8 @@ class TransactionListCreateView(APIView):
             "message": "Failed to create transaction",
             "errors": serializer.errors
         }, status=400)
+
+
 
 class TransactionDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
