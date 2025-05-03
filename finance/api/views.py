@@ -121,12 +121,11 @@ class TransactionListCreateView(APIView):
         if date:
             transactions = transactions.filter(date=date)
 
-        serializer = TransactionSerializer(transactions, many=True)
-        return Response({
-            "success": True,
-            "message": "Transactions retrieved",
-            "data": serializer.data
-        })
+        paginator = CustomPaginator()
+        paginated_transactions = paginator.paginate_queryset(transactions, request)
+
+        serializer = TransactionSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
         # Check if similar transaction already exists
