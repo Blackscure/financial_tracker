@@ -155,7 +155,6 @@ class TransactionListCreateView(APIView):
         }, status=400)
 
 
-
 class TransactionDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
