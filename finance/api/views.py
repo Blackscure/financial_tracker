@@ -12,9 +12,20 @@ class CategoryListCreateView(APIView):
     def get(self, request):
         categories = Category.objects.filter(user=request.user)
         serializer = CategorySerializer(categories, many=True)
+        count = categories.count()
+
+        if count == 0:
+            return Response({
+                "success": True,
+                "message": "No data",
+                "count": count,
+                "data": []
+            })
+
         return Response({
             "success": True,
             "message": "Categories retrieved successfully",
+            "count": count,
             "data": serializer.data
         })
 
