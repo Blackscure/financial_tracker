@@ -15,13 +15,13 @@ class RegisterView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            token = AuthToken.objects.create(user)[1]
+            
             return Response({
                 "success": True,
                 "message": "User registered successfully",
                 "data": {
                     "user": UserSerializer(user).data,
-                    "token": token
+                  
                 }
             }, status=status.HTTP_201_CREATED)
         return Response({
