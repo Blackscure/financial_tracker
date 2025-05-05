@@ -121,17 +121,28 @@ class TransactionListCreateView(APIView):
         if date:
             transactions = transactions.filter(date=date)
 
-        serializer = TransactionSerializer(transactions, many=True)
-        return Response({
-            "success": True,
-            "message": "Transactions retrieved",
-            "data": serializer.data
-        })
+        paginator = CustomPaginator()
+        paginated_transactions = paginator.paginate_queryset(transactions, request)
+
+        serializer = TransactionSerializer(paginated_transactions, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     def post(self, request):
-        serializer = TransactionSerializer(data=request.data)
+        # Check if similar transaction already exists
+        if Transaction.objects.filter(
+            user=request.user,
+            amount=request.data.get('amount'),
+            description=request.data.get('description'),
+            date=request.data.get('date')
+        ).exists():
+            return Response({
+                "success": False,
+                "message": "Transaction already exists with the same details"
+            }, status=400)
+
+        serializer = TransactionSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            serializer.save(user=request.user)
+            serializer.save()
             return Response({
                 "success": True,
                 "message": "Transaction created successfully",
@@ -142,6 +153,7 @@ class TransactionListCreateView(APIView):
             "message": "Failed to create transaction",
             "errors": serializer.errors
         }, status=400)
+
 
 class TransactionDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
